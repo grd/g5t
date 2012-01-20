@@ -139,15 +139,6 @@ func GettextParser(fp *os.File) os.Error {
 			return os.NewError(fmt.Sprint("File is corrupt. File: ", filename))
 		}
 
-		// Note: we unconditionally convert both msgids and msgstrs to
-		// Unicode using the character encoding specified in the charset
-		// parameter of the Content-Type header.  The gettext documentation
-		// strongly encourages msgids to be us-ascii, but some appliations
-		// require alternative encodings (e.g. Zope's ZCML and ZPT).  For
-		// traditional gettext applications, the msgid conversion will
-		// cause no problems since us-ascii should always be a subset of
-		// the charset encoding.  We may want to fall back to 8-bit msgids
-		// if the Unicode conversion fails.
 		if strings.Index(string(msg), "\x00") >= 0 {
 			// Plural forms
 			msgid12 := strings.Split(string(msg), "\x00")
