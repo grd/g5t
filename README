@@ -21,7 +21,7 @@ Usage (short):
 	1) To use this package in your application, write this line (it's 
 	   go-installable): 
 	
-		import "i18n/g5t"
+		import "github.com/GerardNL/g5t"
 		
 		
 	2) In your application define functions (for singualar and plural):
