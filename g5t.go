@@ -24,46 +24,46 @@ This module contains only ---- FOUR ---- exported functions:
 	Setup()		// This function sets the translation
 	String()	// This function returns a translated string
 	StringN()	// This function returns a translated string in plural form
-	
+
 
 Usage (short):
 
 	1) To use this package in your application, write this line (it's 
 	   go-installable): 
-	
+
 		import "i18n/gt"
-		
-		
+
+
 	2) In your application define functions (for singualar and plural):
-	   
+
 		func G(msg string) string { return gt.String(msg) }
 		func GN(msgid1, msgid2 string, n int) string { return gt.StringN(msgid1, msgid2, n) }
-	   
-	   
+
+
 	4) Code the rest of your program. When you want a string that needs to be 
 	   translated, write G("string to translate") etc.
-	
+
 	5) Run for each ".go" file:
-	
+
 		xgettext -o messages.po -C -kG -kGN:1,2 yourprogramfile.go
-   
-	   
+
+
 	6) If you want to place the translation files to a sub directory of 
 	   your application, make a directory called "translations" (for example)
 	   To locate your translations place this function in your app:
-	   
+
 		gt.Setup("your_app", "directory_to_transl_files", "language", Parser)
 
 
 	7) Translate "messages.po" with a text editor to a specific language and
 	   save the file to "yourdomain.po". Then run
-	   
+
 	   msgfmt yourdomain.po
-	   
+
 
 	   Msgfmt creates "yourdomain.mo". Copy this file to the language
 	   translation directory (in Debian this is "/usr/share/locale/")
- 
+
 	8) That's it.
 
 
@@ -74,21 +74,19 @@ TODO:
 
 */
 
-
 import (
+	"encoding/binary"
+	"errors"
 	"fmt"
 	"os"
 	"path"
-	"encoding/binary"
 	"strings"
 )
 
-
-type Parser func(fp *os.File) os.Error 
-
+type Parser func(fp *os.File) error
 
 // Override this method to support alternative .mo formats.
-func GettextParser(fp *os.File) os.Error {
+func GettextParser(fp *os.File) error {
 
 	// Magic number of .mo files; 32 bits; Used for Little/Big Endian testing
 	const LE_MAGIC = 0x950412de
@@ -98,7 +96,7 @@ func GettextParser(fp *os.File) os.Error {
 	// Parse the .mo file header, which consists of 5 little endian 32
 	// bit words.
 	fpstat, _ := fp.Stat()
-	buflen := fpstat.Size
+	buflen := fpstat.Size()
 
 	// Are we big endian or little endian?
 	var magic uint32
@@ -109,7 +107,7 @@ func GettextParser(fp *os.File) os.Error {
 	} else if magic == BE_MAGIC {
 		ii = binary.BigEndian
 	} else {
-		return os.NewError(fmt.Sprint("Bad magic number. File: ", filename))
+		return errors.New(fmt.Sprint("Bad magic number. File: ", filename))
 	}
 
 	var version, msgcount, masteridx, transidx uint32
@@ -136,7 +134,7 @@ func GettextParser(fp *os.File) os.Error {
 			_, _ = fp.ReadAt(msg, int64(moff))
 			_, _ = fp.ReadAt(tmsg, int64(toff))
 		} else {
-			return os.NewError(fmt.Sprint("File is corrupt. File: ", filename))
+			return errors.New(fmt.Sprint("File is corrupt. File: ", filename))
 		}
 
 		if strings.Index(string(msg), "\x00") >= 0 {
@@ -156,9 +154,7 @@ func GettextParser(fp *os.File) os.Error {
 	return nil
 }
 
-
-
-func Setup(domain, localedir, language string, parser Parser) os.Error {
+func Setup(domain, localedir, language string, parser Parser) error {
 
 	// Select the language file
 	mofile := path.Join(localedir, language, "LC_MESSAGES", fmt.Sprintf("%s.mo", domain))
@@ -168,12 +164,11 @@ func Setup(domain, localedir, language string, parser Parser) os.Error {
 	if err == nil {
 		parser(fp)
 		return nil
-	} 
-	
+	}
+
 	// else 
 	return err
 }
-
 
 //
 // catalog with translation strings
@@ -182,7 +177,6 @@ type CatalogType map[string]string
 
 var Catalog CatalogType = make(CatalogType, 100)
 
-
 func String(message string) string {
 	tmsg := Catalog[message]
 	if tmsg == "" {
@@ -190,7 +184,6 @@ func String(message string) string {
 	}
 	return tmsg
 }
-
 
 func StringN(msgid1, msgid2 string, n int) (tmsg string) {
 	//
@@ -210,5 +203,3 @@ func StringN(msgid1, msgid2 string, n int) (tmsg string) {
 	}
 	return tmsg
 }
-
-
