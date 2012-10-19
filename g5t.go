@@ -84,14 +84,21 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"io/ioutil"
 	"path"
 	"strings"
 )
 
-type Parser func(fp *os.File) error
+type Parser func(fp *os.File) (CatalogType, error)
+
+//
+// catalog with translation strings
+//
+type CatalogType map[string]string
 
 // Override this method to support alternative .mo formats.
-func GettextParser(fp *os.File) error {
+func GettextParser(fp *os.File) (CatalogType, error) {
+	var Catalog CatalogType = make(CatalogType, 100)
 
 	// Magic number of .mo files; 32 bits; Used for Little/Big Endian testing
 	const LE_MAGIC = 0x950412de
@@ -112,7 +119,7 @@ func GettextParser(fp *os.File) error {
 	} else if magic == BE_MAGIC {
 		ii = binary.BigEndian
 	} else {
-		return errors.New(fmt.Sprint("Bad magic number. File: ", filename))
+		return nil, errors.New(fmt.Sprint("Bad magic number. File: ", filename))
 	}
 
 	var version, msgcount, masteridx, transidx uint32
@@ -139,7 +146,7 @@ func GettextParser(fp *os.File) error {
 			_, _ = fp.ReadAt(msg, int64(moff))
 			_, _ = fp.ReadAt(tmsg, int64(toff))
 		} else {
-			return errors.New(fmt.Sprint("File is corrupt. File: ", filename))
+			return nil, errors.New(fmt.Sprint("File is corrupt. File: ", filename))
 		}
 
 		if strings.Index(string(msg), "\x00") >= 0 {
@@ -156,10 +163,10 @@ func GettextParser(fp *os.File) error {
 		masteridx += 8
 		transidx += 8
 	}
-	return nil
+	return Catalog, nil
 }
 
-func Setup(domain, localedir, language string, parser Parser) error {
+func LoadLang(domain, localedir, language string, parser Parser) (CatalogType, error) {
 
 	// Select the language file
 	mofile := path.Join(localedir, language, "LC_MESSAGES", fmt.Sprintf("%s.mo", domain))
@@ -167,30 +174,43 @@ func Setup(domain, localedir, language string, parser Parser) error {
 	// Opening, reading, and parsing the .mo file.
 	fp, err := os.Open(mofile)
 	if err == nil {
-		parser(fp)
-		return nil
+		return parser(fp)
 	}
 
 	// else 
-	return err
+	return nil, err
+}
+
+func LoadAllLangs(domain, localedir string, parser Parser) (map[string]CatalogType)  {
+	dirs, _ := ioutil.ReadDir(localedir)
+	ret := make(map[string]CatalogType)
+	for _, fileInfo := range dirs {
+		catalog, err := LoadLang(domain, localedir, fileInfo.Name(), parser)
+		if err == nil {
+			ret[fileInfo.Name()] = catalog
+		} else {
+			fmt.Println("Error parsing locale", fileInfo.Name(), "-", err)
+		}
+	}
+	return ret
 }
 
 //
 // catalog with translation strings
 //
-type CatalogType map[string]string
-
-var Catalog CatalogType = make(CatalogType, 100)
-
-func String(message string) string {
+func (Catalog CatalogType) String(message string) string {
 	tmsg := Catalog[message]
 	if tmsg == "" {
-		return message
+			return message
 	}
 	return tmsg
 }
 
-func StringN(msgid1, msgid2 string, n int) (tmsg string) {
+func (Catalog CatalogType) StringPartial() func(string) string {
+	return func(message string) string { return Catalog.String(message) }
+}
+
+func (Catalog CatalogType) StringN(msgid1, msgid2 string, n int) (tmsg string) {
 	//
 	// if n != 1 then it is plural
 	// 
@@ -208,3 +228,10 @@ func StringN(msgid1, msgid2 string, n int) (tmsg string) {
 	}
 	return tmsg
 }
+
+func (Catalog CatalogType) StringNPartial() func(string, string, int) string {
+	return func(msg1 string, msg2 string, n int) string {
+		return Catalog.StringN(msg1, msg2, n)
+	}
+}
+
