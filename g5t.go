@@ -1,83 +1,12 @@
+// Internationalization and localization support.
+
 package g5t
 
 // Copyright 2012 G.vd.Schoot. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-
-/* Internationalization and localization support.
-
-This module provides internationalization (I18N) and localization (L10N)
-support for your Go programs by providing an interface to the GNU gettext
-message catalog library.
-
-I18N refers to the operation by which a program is made aware of multiple
-languages.  L10N refers to the adaptation of your program, once
-internationalized, to the local language and cultural habits.
-
-This module is a <<< subset >>> and rewrite of the Python gettext module 
-in the Go language.
-The main difference between this module and the Python gettext module is that
-this one only uses unicode AND with only one language file at a time (which is 
-good enough for most programs). This approach reduces the code size 
-significantly.
-
-
-This module contains only ---- FOUR ---- exported functions:
-
-	Parse()		// This is the ".mo" file parser and is overridable
-	Setup()		// This function sets the translation
-	String()	// This function returns a translated string
-	StringN()	// This function returns a translated string in plural form
-
-
-Usage (short):
-
-	1) To use this package in your application, write this line (it's 
-	   go-installable): 
-
-		import "i18n/gt"
-
-
-	2) In your application define functions (for singualar and plural):
-
-		func G(msg string) string { return gt.String(msg) }
-		func GN(msgid1, msgid2 string, n int) string { return gt.StringN(msgid1, msgid2, n) }
-
-
-	4) Code the rest of your program. When you want a string that needs to be 
-	   translated, write G("string to translate") etc.
-
-	5) Run for each ".go" file:
-
-		xgettext -o messages.po -C -kG -kGN:1,2 yourprogramfile.go
-
-
-	6) If you want to place the translation files to a sub directory of 
-	   your application, make a directory called "translations" (for example)
-	   To locate your translations place this function in your app:
-
-		gt.Setup("your_app", "directory_to_transl_files", "language", Parser)
-
-
-	7) Translate "messages.po" with a text editor to a specific language and
-	   save the file to "yourdomain.po". Then run
-
-	   msgfmt yourdomain.po
-
-
-	   Msgfmt creates "yourdomain.mo". Copy this file to the language
-	   translation directory (in Debian this is "/usr/share/locale/")
-
-	8) That's it.
-
-
-TODO:
-- Bugfixing. 
-- Make it work on different operating systems.
-- Listen to input from others. 
-
-*/
+// See README file for usage.
 
 import (
 	"encoding/binary"
