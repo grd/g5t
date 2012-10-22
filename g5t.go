@@ -1,20 +1,19 @@
 // Internationalization and localization support.
-
+// NOT intended for productional use! See README.
 package g5t
 
 // Copyright 2012 G.vd.Schoot. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// See README file for usage.
-
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path"
-	"strings"
 )
 
 type Parser func(fp *os.File) error
@@ -22,68 +21,72 @@ type Parser func(fp *os.File) error
 // Override this method to support alternative .mo formats.
 func GettextParser(fp *os.File) error {
 
-	// Magic number of .mo files; 32 bits; Used for Little/Big Endian testing
-	const LE_MAGIC = 0x950412de
-	const BE_MAGIC = 0xde120495
-
-	filename := fp.Name()
 	// Parse the .mo file header, which consists of 5 little endian 32
 	// bit words.
-	fpstat, _ := fp.Stat()
-	buflen := fpstat.Size()
 
-	// Are we big endian or little endian?
-	var magic uint32
-	var ii binary.ByteOrder
-	_ = binary.Read(fp, binary.LittleEndian, &magic)
-	if magic == LE_MAGIC {
-		ii = binary.LittleEndian
-	} else if magic == BE_MAGIC {
-		ii = binary.BigEndian
-	} else {
-		return errors.New(fmt.Sprint("Bad magic number. File: ", filename))
+	type Mo_header struct {
+		Magic, Version, Msgcount, Masteridx, Transidx uint32
+	}
+	var header Mo_header
+
+	err := binary.Read(fp, binary.LittleEndian, &header)
+	if err != nil {
+		return err
 	}
 
-	var version, msgcount, masteridx, transidx uint32
-	_ = binary.Read(fp, ii, &version)
-	_ = binary.Read(fp, ii, &msgcount)
-	_ = binary.Read(fp, ii, &masteridx)
-	_ = binary.Read(fp, ii, &transidx)
+	// Magic number of .mo files; 32 bits;
+	if header.Magic != 0x950412de {
+		return errors.New(fmt.Sprint("Bad magic number. File: ", fp.Name()))
+	}
+
+	// Master- and translation indexes
+	type Index struct{ Len, Off uint32 }
+	mIndex := make([]Index, header.Msgcount)
+	tIndex := make([]Index, header.Msgcount)
+
+	// Read master index
+	fp.Seek(int64(header.Masteridx), 0)
+	err = binary.Read(fp, binary.LittleEndian, &mIndex)
+	if err != nil {
+		return err
+	}
+
+	// Read translation index
+	fp.Seek(int64(header.Transidx), 0)
+	err = binary.Read(fp, binary.LittleEndian, &tIndex)
+	if err != nil {
+		return err
+	}
 
 	// Now put all messages from the .mo file buffer into the catalog
 	// dictionary.
-	for i := 0; i < int(msgcount); i++ {
-		var mlen, moff, mend, tlen, toff, tend uint32
-		fp.Seek(int64(masteridx), 0)
-		binary.Read(fp, ii, &mlen)
-		binary.Read(fp, ii, &moff)
-		mend = moff + mlen
-		fp.Seek(int64(transidx), 0)
-		_ = binary.Read(fp, ii, &tlen)
-		_ = binary.Read(fp, ii, &toff)
-		tend = toff + tlen
-		msg := make([]byte, mlen)
-		tmsg := make([]byte, tlen)
-		if int64(mend) < buflen && int64(tend) < buflen {
-			_, _ = fp.ReadAt(msg, int64(moff))
-			_, _ = fp.ReadAt(tmsg, int64(toff))
-		} else {
-			return errors.New(fmt.Sprint("File is corrupt. File: ", filename))
+	for i := 0; i < int(header.Msgcount); i++ {
+
+		// Read message string
+		msg := make([]byte, mIndex[i].Len)
+		fp.Seek(int64(mIndex[i].Off), 0)
+		_, err = io.ReadFull(fp, msg)
+		if err != nil {
+			return err
 		}
 
-		if strings.Index(string(msg), "\x00") >= 0 {
-			// Plural forms
-			msgid12 := strings.Split(string(msg), "\x00")
-			tmsg12 := strings.Split(string(tmsg), "\x00")
-			for i := 0; i < len(tmsg); i++ {
-				Catalog[msgid12[i]] = tmsg12[i]
-			}
+		// Read translation string
+		tmsg := make([]byte, tIndex[i].Len)
+		fp.Seek(int64(tIndex[i].Off), 0)
+		_, err = io.ReadFull(fp, tmsg)
+		if err != nil {
+			return err
+		}
+
+		// Adding the messages to the catalog...
+		// First check for plural forms
+		if mir := bytes.IndexRune(msg, '\x00'); mir >= 0 {
+			tir := bytes.IndexRune(tmsg, '\x00')
+			Catalog[string(msg[0:mir])] = string(tmsg[0:tir])
+			Catalog[string(msg[mir+1:])] = string(tmsg[tir+1:])
 		} else {
 			Catalog[string(msg)] = string(tmsg)
 		}
-		// advance to next entry in the seek tables
-		masteridx += 8
-		transidx += 8
 	}
 	return nil
 }
@@ -95,13 +98,16 @@ func Setup(domain, localedir, language string, parser Parser) error {
 
 	// Opening, reading, and parsing the .mo file.
 	fp, err := os.Open(mofile)
-	if err == nil {
-		parser(fp)
-		return nil
+	if err != nil {
+		return err
 	}
+	defer fp.Close()
 
-	// else 
-	return err
+	err = parser(fp)
+	if err != nil {
+		return fmt.Sprintf("Error parsing %s. Error: %s\n", fp.Name(), err)
+	}
+	return nil
 }
 
 //
@@ -109,7 +115,7 @@ func Setup(domain, localedir, language string, parser Parser) error {
 //
 type CatalogType map[string]string
 
-var Catalog CatalogType = make(CatalogType, 100)
+var Catalog CatalogType = make(CatalogType)
 
 func String(message string) string {
 	tmsg := Catalog[message]

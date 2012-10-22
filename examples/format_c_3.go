@@ -16,26 +16,24 @@ package main
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
 
-
 import (
-	"os"
-	"fmt"
 	"bytes"
-	"github.com/GerardNL/g5t"
+	"fmt"
+	"github.com/grd/g5t"
+	"os"
 )
 
-func G(msgid string) string {
-	return gt.String(msgid)
-}
-
-func GN(msgid1, msgid2 string, nr int) string {
-	return gt.StringN(msgid1, msgid2, nr)
-}
+var G = g5t.String   // func variabele
+var GN = g5t.StringN // idem
 
 func main() {
 	var n = 5
 
-	gt.Setup("translations", "/usr/share/locale", "de", gt.GettextParser)
+	err := g5t.Setup("messages", "./translation", "de", g5t.GettextParser)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
 
 	s := G("father of %d children")
 	s2 := GN("father of one kid", "father of %d children", n)
@@ -60,4 +58,3 @@ func main() {
 		os.Exit(1)
 	}
 }
-
