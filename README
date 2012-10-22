@@ -1,33 +1,39 @@
 Internationalization and localization support.
 
 This module is a <<< subset >>> and rewrite of the Python gettext module 
-in the Go language.
+in the Go language. It is NOT intended for use in a production environment.
+
+Links to other gettext packages in the Go language:
+	https://github.com/gosexy/gettext   (feature complete, cgo)
+	https://github.com/jkozera/g5t      (multi language support)
+
+
 The main difference between this module and the Python gettext module is that
 this one only uses unicode AND with only one language file at a time (which is 
 good enough for most programs). This approach reduces the code size 
 significantly.
 
 
-This module contains only ---- FOUR ---- exported functions:
+This module contains only four exported functions:
 
 	Parse()		// This is the ".mo" file parser and is overridable
 	Setup()		// This function sets the translation
 	String()	// This function returns a translated string
 	StringN()	// This function returns a translated string in plural form
-	
+
 
 Usage (short):
 
 	1) To use this package in your application, write this line (it's 
 	   go-installable): 
 	
-		import "github.com/GerardNL/g5t"
+		import "github.com/grd/g5t"
 		
 		
 	2) In your application define functions (for singualar and plural):
 	   
-		func G(msg string) string { return gt.String(msg) }
-		func GN(msgid1, msgid2 string, n int) string { return gt.StringN(msgid1, msgid2, n) }
+		func G(msg string) string { return g5t.String(msg) }
+		func GN(msgid1, msgid2 string, n int) string { return g5t.StringN(msgid1, msgid2, n) }
 	   
 	   
 	4) Code the rest of your program. When you want a string that needs to be 
@@ -42,7 +48,7 @@ Usage (short):
 	   your application, make a directory called "translations" (for example)
 	   To locate your translations place this function in your app:
 	   
-		gt.Setup("your_app", "directory_to_transl_files", "language", Parser)
+		g5t.Setup("your_app", "directory_to_transl_files", "language", Parser)
 
 
 	7) Translate "messages.po" with a text editor to a specific language and
@@ -55,11 +61,4 @@ Usage (short):
 	   translation directory (in Debian this is "/usr/share/locale/")
  
 	8) That's it.
-
-
-TODO:
-- Bugfixing. 
-- Make it work on different operating systems.
-- Listen to input from others. 
-
 
