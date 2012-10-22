@@ -1,6 +1,6 @@
 Internationalization and localization support.
 
-This module is a <<< subset >>> and rewrite of the Python gettext module 
+This module is a subset and rewrite of the Python gettext module 
 in the Go language. It is NOT intended for use in a production environment.
 
 Links to other gettext packages in the Go language:
